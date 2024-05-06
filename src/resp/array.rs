@@ -3,16 +3,23 @@ use anyhow::Result;
 use bytes::{Buf, BytesMut};
 use std::ops::{Deref, DerefMut};
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
-pub struct RespArray(Vec<RespFrame>);
+pub struct RespArray(pub(crate) Option<Vec<RespFrame>>);
 
 impl RespEncode for RespArray {
     fn encode(&self) -> Vec<u8> {
-        let mut buf = Vec::with_capacity(DEFAULT_CAPACITY);
-        buf.extend_from_slice(format!("*{}\r\n", self.len()).as_bytes());
-        for frame in self.iter() {
-            buf.extend_from_slice(frame.encode().as_slice());
+        match self.0.as_ref() {
+            None => b"*-1\r\n".to_vec(),
+            Some(v) => {
+                let mut buf = Vec::with_capacity(DEFAULT_CAPACITY);
+                buf.extend_from_slice(b"*");
+                buf.extend_from_slice(v.len().to_string().as_bytes());
+                buf.extend_from_slice(b"\r\n");
+                for frame in v.iter() {
+                    buf.extend_from_slice(frame.encode().as_slice());
+                }
+                buf
+            }
         }
-        buf
     }
 }
 
@@ -21,8 +28,13 @@ impl RespDecode for RespArray {
     fn decode(data: &mut BytesMut) -> Result<Self, RespError> {
         data.advance(Self::PREFIX.len());
         let (len, pos) = parse_length(data)?;
+        if len == -1 {
+            data.advance(pos);
+            return Ok(RespArray::new_null());
+        }
+
         data.advance(pos);
-        let mut ra = RespArray::new();
+        let mut ra = Vec::with_capacity(len as usize);
         for _ in 0..len {
             let frame = RespFrame::decode(data).map_err(|e| RespError::RespWrappedError {
                 typ: "array".to_string(),
@@ -30,12 +42,12 @@ impl RespDecode for RespArray {
             })?;
             ra.push(frame);
         }
-        Ok(ra)
+        Ok(RespArray::with_vec(ra))
     }
 }
 
 impl Deref for RespArray {
-    type Target = Vec<RespFrame>;
+    type Target = Option<Vec<RespFrame>>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -49,12 +61,25 @@ impl DerefMut for RespArray {
 }
 
 impl RespArray {
+    pub fn new_null() -> Self {
+        RespArray(None)
+    }
     pub fn new() -> Self {
-        RespArray(Vec::new())
+        RespArray(Some(Vec::new()))
     }
 
     pub fn with_vec(v: impl Into<Vec<RespFrame>>) -> Self {
-        RespArray(v.into())
+        RespArray(Some(v.into()))
+    }
+
+    pub fn try_push(&mut self, frame: RespFrame) -> Result<()> {
+        match self.0.as_mut() {
+            Some(v) => {
+                v.push(frame);
+                Ok(())
+            }
+            None => Err(anyhow::anyhow!("Can't push to null array")),
+        }
     }
 }
 
@@ -69,12 +94,13 @@ mod test {
     use super::*;
     use crate::BulkString;
     #[test]
-    fn test_resp_array_encode() {
+    fn test_resp_array_encode() -> Result<()> {
         let mut ra = RespArray::new();
-        ra.push(1.0f64.into());
-        ra.push(BulkString::new("hello world").into());
+        ra.try_push(1.0f64.into())?;
+        ra.try_push(BulkString::new("hello world").into())?;
         let res = ra.encode();
         assert_eq!(res, b"*2\r\n,1.0\r\n$11\r\nhello world\r\n");
+        Ok(())
     }
 
     #[test]
@@ -123,5 +149,20 @@ mod test {
         let frame = RespArray::decode(&mut buf)?;
         assert_eq!(frame, RespArray::with_vec([b"set".into(), b"hello".into()]));
         Ok(())
+    }
+
+    #[test]
+    fn test_resp_array_encode_null() {
+        let ra = RespArray::new_null();
+        let res = ra.encode();
+        assert_eq!(res, b"*-1\r\n");
+    }
+
+    #[test]
+    fn test_resp_array_decode_null() {
+        let mut data = BytesMut::from("*-1\r\n");
+        let res = RespArray::decode(&mut data).unwrap();
+        assert_eq!(data.len(), 0);
+        assert_eq!(res.encode(), b"*-1\r\n");
     }
 }
