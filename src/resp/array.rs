@@ -56,10 +56,6 @@ impl RespArray {
     pub fn with_vec(v: impl Into<Vec<RespFrame>>) -> Self {
         RespArray(v.into())
     }
-
-    pub fn push_frame(&mut self, frame: impl Into<RespFrame>) {
-        self.0.push(frame.into());
-    }
 }
 
 impl Default for RespArray {
@@ -75,8 +71,8 @@ mod test {
     #[test]
     fn test_resp_array_encode() {
         let mut ra = RespArray::new();
-        ra.push_frame(1.0f64);
-        ra.push_frame(BulkString::new("hello world"));
+        ra.push(1.0f64.into());
+        ra.push(BulkString::new("hello world").into());
         let res = ra.encode();
         assert_eq!(res, b"*2\r\n,1.0\r\n$11\r\nhello world\r\n");
     }
