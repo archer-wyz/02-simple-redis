@@ -28,6 +28,12 @@ impl RespSet {
     }
 }
 
+impl Default for RespSet {
+    fn default() -> Self {
+        RespSet::new()
+    }
+}
+
 impl RespDecode for RespSet {
     const PREFIX: &'static str = "~";
     fn decode(data: &mut BytesMut) -> Result<Self, RespError> {
@@ -39,13 +45,7 @@ impl RespDecode for RespSet {
             let frame = RespFrame::decode(data)?;
             rs.push(frame)
         }
-        Ok(rs.into())
-    }
-}
-
-impl RespSet {
-    fn push_frame(&mut self, frame: impl Into<RespFrame>) {
-        self.0.push(frame.into());
+        Ok(rs)
     }
 }
 
@@ -70,8 +70,8 @@ mod test {
     #[test]
     fn test_resp_set_encode() {
         let mut rs = RespSet::new();
-        rs.push(Double(1.0));
-        rs.push_frame(BulkString::new(b"hello world".to_vec()));
+        rs.push(1.0f64.into());
+        rs.push(BulkString::new(b"hello world".to_vec()).into());
         let res = rs.encode();
         assert_eq!(res, b"~2\r\n,1.0\r\n$11\r\nhello world\r\n");
     }
@@ -96,7 +96,6 @@ mod test {
                 BulkString::new(b"set".to_vec()).into(),
                 BulkString::new(b"hello".to_vec()).into()
             ])
-            .into()
         );
 
         Ok(())

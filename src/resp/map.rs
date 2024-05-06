@@ -36,7 +36,7 @@ impl RespDecode for RespMap {
             })?;
             rm.insert(key.0, value);
         }
-        Ok(rm.into())
+        Ok(rm)
     }
 }
 
@@ -55,6 +55,12 @@ impl RespMap {
 
     pub fn with_vec(v: impl Into<Vec<(String, RespFrame)>>) -> Self {
         RespMap(v.into().into_iter().collect())
+    }
+}
+
+impl Default for RespMap {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

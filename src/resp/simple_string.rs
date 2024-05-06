@@ -22,7 +22,7 @@ impl RespDecode for SimpleString {
     fn decode(data: &mut BytesMut) -> Result<Self, RespError> {
         data.advance(Self::PREFIX.len());
         let (s, len) = split_cr_lf(data)?;
-        let res = SimpleString::new(String::from_utf8_lossy(s).to_string()).into();
+        let res = SimpleString::new(String::from_utf8_lossy(s).to_string());
         data.advance(len);
         Ok(res)
     }

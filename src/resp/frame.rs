@@ -12,7 +12,6 @@ pub enum RespFrame {
     BulkString(BulkString),
     Array(RespArray),
     Null(RespNull),
-    NullArray(RespNullArray),
     Boolean(bool),
     Double(f64),
     Map(RespMap),
@@ -28,7 +27,7 @@ impl RespDecode for RespFrame {
         let prefix = data[0] as char;
         match prefix {
             '+' => Ok(SimpleString::decode(data)?.into()),
-            '*' => Ok(RespArray::decode(data).map_or()),
+            '*' => Ok(RespArray::decode(data)?.into()),
             '$' => Ok(BulkString::decode(data)?.into()),
             '#' => Ok(bool::decode(data)?.into()),
             '-' => Ok(SimpleError::decode(data)?.into()),

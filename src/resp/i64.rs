@@ -22,7 +22,7 @@ impl RespDecode for i64 {
                     data: String::from_utf8_lossy(s).to_string(),
                 })?;
         data.advance(len);
-        Ok(res.into())
+        Ok(res)
     }
 }
 

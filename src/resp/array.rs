@@ -30,7 +30,7 @@ impl RespDecode for RespArray {
             })?;
             ra.push(frame);
         }
-        Ok(ra.into())
+        Ok(ra)
     }
 }
 
@@ -56,6 +56,16 @@ impl RespArray {
     pub fn with_vec(v: impl Into<Vec<RespFrame>>) -> Self {
         RespArray(v.into())
     }
+
+    pub fn push_frame(&mut self, frame: impl Into<RespFrame>) {
+        self.0.push(frame.into());
+    }
+}
+
+impl Default for RespArray {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[cfg(test)]
@@ -65,8 +75,8 @@ mod test {
     #[test]
     fn test_resp_array_encode() {
         let mut ra = RespArray::new();
-        ra.push(Double(1.0));
-        ra.push(BulkString::new("hello world").into());
+        ra.push_frame(1.0f64);
+        ra.push_frame(BulkString::new("hello world"));
         let res = ra.encode();
         assert_eq!(res, b"*2\r\n,1.0\r\n$11\r\nhello world\r\n");
     }
@@ -101,10 +111,7 @@ mod test {
         buf.extend_from_slice(b"*2\r\n$3\r\nset\r\n$5\r\nhello\r\n");
 
         let frame = RespArray::decode(&mut buf)?;
-        assert_eq!(
-            frame,
-            RespArray::with_vec([b"set".into(), b"hello".into()]).into()
-        );
+        assert_eq!(frame, RespArray::with_vec([b"set".into(), b"hello".into()]));
 
         buf.extend_from_slice(b"*2\r\n$3\r\nset\r\n");
         let ret = RespArray::decode(&mut buf.clone());
@@ -118,11 +125,7 @@ mod test {
 
         buf.extend_from_slice(b"$5\r\nhello\r\n");
         let frame = RespArray::decode(&mut buf)?;
-        assert_eq!(
-            frame,
-            RespArray::with_vec([b"set".into(), b"hello".into()]).into()
-        );
-
+        assert_eq!(frame, RespArray::with_vec([b"set".into(), b"hello".into()]));
         Ok(())
     }
 }

@@ -1,18 +1,29 @@
 use super::*;
 use bytes::Buf;
-use std::ops::Deref;
 
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
-pub struct BulkString(pub(crate) Vec<u8>);
+pub enum BulkString {
+    Vec(Vec<u8>),
+    Null,
+}
 
 // $<length>\r\n<data>\r\n
 impl RespEncode for BulkString {
     fn encode(&self) -> Vec<u8> {
-        let mut buf = Vec::with_capacity(DEFAULT_CAPACITY);
-        buf.extend_from_slice(format!("${}\r\n", self.len()).as_bytes());
-        buf.extend_from_slice(self.as_slice());
-        buf.extend_from_slice(b"\r\n");
-        buf
+        match self {
+            BulkString::Vec(v) => {
+                let mut buf = Vec::with_capacity(DEFAULT_CAPACITY);
+                buf.extend_from_slice(format!("${}\r\n", v.len()).as_bytes());
+                buf.extend_from_slice(v.as_slice());
+                buf.extend_from_slice(b"\r\n");
+                buf
+            }
+            BulkString::Null => {
+                let mut buf = Vec::with_capacity(DEFAULT_CAPACITY);
+                buf.extend_from_slice(b"$-1\r\n");
+                buf
+            }
+        }
     }
 }
 
@@ -20,38 +31,53 @@ impl RespDecode for BulkString {
     const PREFIX: &'static str = "$";
     fn decode(data: &mut BytesMut) -> Result<Self, RespError> {
         data.advance(Self::PREFIX.len());
+
+        // get length and move cursor to the end of \r\n
         let (len, pos) = parse_length(data)?;
         data.advance(pos);
+        if len == -1 {
+            return Ok(BulkString::new_null());
+        }
+
         let (s, pos) = split_cr_lf(data)?;
-        if s.len() != len {
+        if s.len() != len as usize {
             return Err(RespError::RespNotEqualLength {
-                expected: len,
+                expected: len as usize,
                 decoded: s.len(),
             });
         }
-        let res = BulkString::new(s).into();
+
+        let res = BulkString::new(s);
         data.advance(pos);
         Ok(res)
     }
 }
 
-impl Deref for BulkString {
-    type Target = Vec<u8>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
+// 这样写会有歧义，直接不用
+// impl Deref for BulkString {
+//     type Target = Vec<u8>;
+//
+//     fn deref(&self) -> &Self::Target {
+//         match self {
+//             BulkString::Vec(v) => v,
+//             BulkString::Null => &Vec::new()
+//         }
+//     }
+// }
 
 impl From<&str> for BulkString {
     fn from(s: &str) -> Self {
-        BulkString(s.as_bytes().to_vec())
+        BulkString::new(s.as_bytes())
     }
 }
 
 impl BulkString {
     pub fn new(s: impl Into<Vec<u8>>) -> Self {
-        BulkString(s.into())
+        BulkString::Vec(s.into())
+    }
+
+    pub fn new_null() -> Self {
+        BulkString::Null
     }
 }
 
@@ -85,5 +111,13 @@ mod test {
                 decoded: 11,
             }
         );
+    }
+
+    #[test]
+    fn test_bulk_string_decode_null() {
+        let mut data = BytesMut::from("$-1\r\n");
+        let res = BulkString::decode(&mut data).unwrap();
+        assert_eq!(data.len(), 0);
+        assert_eq!(res.encode(), b"$-1\r\n");
     }
 }

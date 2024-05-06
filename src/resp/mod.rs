@@ -10,7 +10,6 @@ mod set;
 mod simple_error;
 mod simple_string;
 
-use crate::resp::RespFrame::Double;
 use bytes::BytesMut;
 use core::f64;
 use enum_dispatch::enum_dispatch;
@@ -23,7 +22,7 @@ pub use self::{
     bulk_string::BulkString,
     frame::{RespError, RespFrame},
     map::RespMap,
-    null::{RespNull, RespNullArray},
+    null::RespNull,
     set::RespSet,
     simple_error::SimpleError,
     simple_string::SimpleString,
@@ -48,17 +47,17 @@ pub trait RespDecode: Sized {
 fn split_cr_lf(data: &BytesMut) -> Result<(&[u8], usize), RespError> {
     let mut pos = 0;
     while pos < data.len() {
-        if data[pos] == b'\r' {
-            if pos + 1 < data.len() && data[pos + 1] == b'\n' {
-                return Ok((&data[..pos], pos + 2));
-            }
+        if data[pos] == b'\r' && pos + 1 < data.len() && data[pos + 1] == b'\n' {
+            return Ok((&data[..pos], pos + 2));
         }
         pos += 1;
     }
     Err(RespError::RespNotComplete("CRLF not found".to_string()))
 }
 
-fn parse_length(data: &BytesMut) -> Result<(usize, usize), RespError> {
+// TODO
+// Should length be usize or i64?
+fn parse_length(data: &BytesMut) -> Result<(i64, usize), RespError> {
     let (s, pos) = split_cr_lf(data)?;
     let s = String::from_utf8_lossy(s);
     let len = s

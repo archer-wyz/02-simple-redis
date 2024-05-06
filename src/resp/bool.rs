@@ -18,6 +18,6 @@ impl RespDecode for bool {
             _ => return Err(RespError::RespNotComplete("Invalid bool".to_string())),
         };
         data.advance(pos);
-        Ok(res.into())
+        Ok(res)
     }
 }
