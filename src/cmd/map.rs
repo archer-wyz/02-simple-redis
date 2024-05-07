@@ -6,12 +6,10 @@ impl TryFrom<RespArray> for Get {
     type Error = CommandError;
 
     fn try_from(value: RespArray) -> Result<Self, Self::Error> {
-        validate_command(&value, "get", 1)?;
-        let v = value.0.unwrap_or_default();
-        let v = &v[1];
-        match v {
-            RespFrame::BulkString(s) => Ok(Get { key: s.to_string() }),
-            RespFrame::SimpleString(s) => Ok(Get { key: s.to_string() }),
+        let mut args = get_args(value, "get", 1)?.into_iter();
+        match args.next() {
+            Some(RespFrame::BulkString(s)) => Ok(Get { key: s.to_string() }),
+            Some(RespFrame::SimpleString(s)) => Ok(Get { key: s.to_string() }),
             _ => Err(CommandError::InvalidArgument(
                 "Invalid argument".to_string(),
             )),

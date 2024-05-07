@@ -58,8 +58,8 @@ pub enum CommandError {
 //     }
 // }
 
-fn validate_command(value: &RespArray, command: &str, args: usize) -> Result<(), CommandError> {
-    let frame = match &value.0 {
+fn get_args(value: RespArray, command: &str, args: usize) -> Result<Vec<RespFrame>, CommandError> {
+    let frame = match value.0 {
         None => return Err(CommandError::InvalidCommand("Empty command".to_string())),
         Some(v) => {
             if v.is_empty() {
@@ -82,12 +82,11 @@ fn validate_command(value: &RespArray, command: &str, args: usize) -> Result<(),
                         frame.len() - 1
                     )));
                 }
+                Ok(frame.into_iter().skip(1).collect())
             }
-            BulkString::Null => {
-                return Err(CommandError::InvalidCommand(
-                    "Command type is bulk_string_null".to_string(),
-                ))
-            }
+            BulkString::Null => Err(CommandError::InvalidCommand(
+                "Command type is bulk_string_null".to_string(),
+            )),
         },
         RespFrame::SimpleString(ref ss) => {
             if ss.as_bytes() != command.as_bytes() {
@@ -100,14 +99,12 @@ fn validate_command(value: &RespArray, command: &str, args: usize) -> Result<(),
                     frame.len() - 1
                 )));
             }
+            Ok(frame.into_iter().skip(1).collect())
         }
-        _ => {
-            return Err(CommandError::InvalidCommand(
-                "Command type should be simple_string or bulk_string".to_string(),
-            ))
-        }
+        _ => Err(CommandError::InvalidCommand(
+            "Command type should be simple_string or bulk_string".to_string(),
+        )),
     }
-    Ok(())
 }
 
 #[cfg(test)]
@@ -117,18 +114,20 @@ mod test {
     use bytes::BytesMut;
 
     #[test]
-    fn test_validate_command() {
+    fn test_get_args() {
         let mut data = BytesMut::from("*2\r\n$3\r\nget\r\n$3\r\nkey\r\n");
         let res = RespArray::decode(&mut data).unwrap();
-        validate_command(&res, "get", 1).unwrap();
+        let args = get_args(res, "get", 1).unwrap();
+        assert_eq!(args.len(), 1);
 
         let mut data = BytesMut::from("*2\r\n+get\r\n$3\r\nkey\r\n");
         let res = RespArray::decode(&mut data).unwrap();
-        validate_command(&res, "get", 1).unwrap();
+        let args = get_args(res, "get", 1).unwrap();
+        assert_eq!(args.len(), 1);
 
         let mut data = BytesMut::from("*3\r\n$3\r\nget\r\n$3\r\nkey\r\n+abc\r\n");
         let res = RespArray::decode(&mut data).unwrap();
-        let err = validate_command(&res, "get", 1).unwrap_err();
+        let err = get_args(res, "get", 1).unwrap_err();
         assert_eq!(
             err,
             CommandError::InvalidCommand(format!(
