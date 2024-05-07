@@ -1,5 +1,6 @@
 use super::*;
 use bytes::{Buf, BytesMut};
+use std::fmt::{Display, Formatter};
 use std::ops::Deref;
 
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
@@ -39,6 +40,12 @@ impl Deref for SimpleString {
 impl SimpleString {
     pub fn new(s: impl Into<String>) -> Self {
         SimpleString(s.into())
+    }
+}
+
+impl Display for SimpleString {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
 

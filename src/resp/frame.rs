@@ -2,6 +2,7 @@ use super::*;
 use bytes::BytesMut;
 use enum_dispatch::enum_dispatch;
 use thiserror::Error;
+const MAX_SIMPLE_STRING: usize = 128;
 
 #[enum_dispatch(RespEncode)]
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
@@ -59,3 +60,35 @@ impl<const N: usize> From<&[u8; N]> for RespFrame {
         RespFrame::BulkString(BulkString::new(s.to_vec()))
     }
 }
+
+impl From<&str> for RespFrame {
+    fn from(s: &str) -> Self {
+        if s.len() > MAX_SIMPLE_STRING {
+            RespFrame::BulkString(BulkString::new(s.to_string().into_bytes()))
+        } else {
+            RespFrame::SimpleString(SimpleString::new(s.to_string()))
+        }
+    }
+}
+
+impl From<String> for RespFrame {
+    fn from(s: String) -> Self {
+        if s.len() > MAX_SIMPLE_STRING {
+            RespFrame::BulkString(BulkString::new(s.into_bytes()))
+        } else {
+            RespFrame::SimpleString(SimpleString::new(s))
+        }
+    }
+}
+
+// impl From<i64> for RespFrame {
+//     fn from(i: i64) -> Self {
+//         RespFrame::Integer(i)
+//     }
+// }
+
+// impl From<f64> for RespFrame {
+//     fn from(f: f64) -> Self {
+//         RespFrame::Double(f)
+//     }
+// }

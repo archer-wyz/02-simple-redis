@@ -1,5 +1,7 @@
 use super::*;
+use anyhow::Result;
 use bytes::Buf;
+use std::fmt::Display;
 
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum BulkString {
@@ -78,6 +80,15 @@ impl BulkString {
 
     pub fn new_null() -> Self {
         BulkString::Null
+    }
+}
+
+impl Display for BulkString {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            BulkString::Vec(v) => write!(f, "{}", String::from_utf8_lossy(v)),
+            BulkString::Null => Err(std::fmt::Error),
+        }
     }
 }
 

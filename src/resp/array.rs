@@ -72,10 +72,10 @@ impl RespArray {
         RespArray(Some(v.into()))
     }
 
-    pub fn try_push(&mut self, frame: RespFrame) -> Result<()> {
+    pub fn try_push(&mut self, frame: impl Into<RespFrame>) -> Result<()> {
         match self.0.as_mut() {
             Some(v) => {
-                v.push(frame);
+                v.push(frame.into());
                 Ok(())
             }
             None => Err(anyhow::anyhow!("Can't push to null array")),
@@ -93,12 +93,14 @@ impl Default for RespArray {
 mod test {
     use super::*;
     use crate::BulkString;
+
     #[test]
     fn test_resp_array_encode() -> Result<()> {
         let mut ra = RespArray::new();
-        ra.try_push(1.0f64.into())?;
-        ra.try_push(BulkString::new("hello world").into())?;
+        ra.try_push(1.0f64)?;
+        ra.try_push(BulkString::new("hello world"))?;
         let res = ra.encode();
+        println!("{:?}", String::from_utf8_lossy(res.as_slice()).to_string());
         assert_eq!(res, b"*2\r\n,1.0\r\n$11\r\nhello world\r\n");
         Ok(())
     }
