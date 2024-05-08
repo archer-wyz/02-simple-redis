@@ -8,8 +8,11 @@ impl TryFrom<RespArray> for Get {
     fn try_from(value: RespArray) -> Result<Self, Self::Error> {
         let mut args = get_args(value, "get", 1)?.into_iter();
         match args.next() {
-            Some(RespFrame::BulkString(s)) => Ok(Get { key: s.to_string() }),
-            Some(RespFrame::SimpleString(s)) => Ok(Get { key: s.to_string() }),
+            Some(k) => Ok(Get {
+                key: k
+                    .try_to_string()
+                    .map_err(|e| CommandError::InvalidCommand(e.to_string()))?,
+            }),
             _ => Err(CommandError::InvalidArgument(
                 "Invalid argument".to_string(),
             )),
@@ -31,12 +34,10 @@ impl TryFrom<RespArray> for Set {
     fn try_from(value: RespArray) -> Result<Self, Self::Error> {
         let mut args = get_args(value, "set", 2)?.into_iter();
         match (args.next(), args.next()) {
-            (Some(RespFrame::BulkString(k)), Some(v)) => Ok(Set {
-                key: k.to_string(),
-                value: v,
-            }),
-            (Some(RespFrame::SimpleString(k)), Some(v)) => Ok(Set {
-                key: k.to_string(),
+            (Some(k), Some(v)) => Ok(Set {
+                key: k
+                    .try_to_string()
+                    .map_err(|e| CommandError::InvalidCommand(e.to_string()))?,
                 value: v,
             }),
             _ => Err(CommandError::InvalidArgument(

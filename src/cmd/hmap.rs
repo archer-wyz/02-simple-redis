@@ -22,13 +22,13 @@ impl TryFrom<RespArray> for HGet {
     fn try_from(value: RespArray) -> Result<Self, Self::Error> {
         let mut args = get_args(value, "hget", 2)?.into_iter();
         match (args.next(), args.next()) {
-            (Some(RespFrame::BulkString(k)), Some(RespFrame::BulkString(f))) => Ok(HGet {
-                key: k.to_string(),
-                field: f.to_string(),
-            }),
-            (Some(RespFrame::SimpleString(k)), Some(RespFrame::SimpleString(f))) => Ok(HGet {
-                key: k.to_string(),
-                field: f.to_string(),
+            (Some(k), Some(f)) => Ok(HGet {
+                key: k
+                    .try_to_string()
+                    .map_err(|e| CommandError::InvalidCommand(e.to_string()))?,
+                field: f
+                    .try_to_string()
+                    .map_err(|e| CommandError::InvalidCommand(e.to_string()))?,
             }),
             _ => Err(CommandError::InvalidArgument(
                 "Invalid argument".to_string(),
@@ -43,18 +43,15 @@ impl TryFrom<RespArray> for HSet {
     fn try_from(value: RespArray) -> Result<Self, Self::Error> {
         let mut args = get_args(value, "hset", 3)?.into_iter();
         match (args.next(), args.next(), args.next()) {
-            (Some(RespFrame::BulkString(k)), Some(RespFrame::BulkString(f)), Some(v)) => Ok(HSet {
-                key: k.to_string(),
-                field: f.to_string(),
+            (Some(k), Some(f), Some(v)) => Ok(HSet {
+                key: k
+                    .try_to_string()
+                    .map_err(|e| CommandError::InvalidCommand(e.to_string()))?,
+                field: f
+                    .try_to_string()
+                    .map_err(|e| CommandError::InvalidCommand(e.to_string()))?,
                 value: v,
             }),
-            (Some(RespFrame::SimpleString(k)), Some(RespFrame::SimpleString(f)), Some(v)) => {
-                Ok(HSet {
-                    key: k.to_string(),
-                    field: f.to_string(),
-                    value: v,
-                })
-            }
             _ => Err(CommandError::InvalidArgument(
                 "Invalid argument".to_string(),
             )),

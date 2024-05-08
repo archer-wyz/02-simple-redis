@@ -1,4 +1,5 @@
 use super::*;
+use anyhow::{anyhow, Result};
 use bytes::BytesMut;
 use enum_dispatch::enum_dispatch;
 use std::fmt::{Display, Formatter};
@@ -33,6 +34,30 @@ impl Display for RespFrame {
             RespFrame::Double(d) => write!(f, "{}", d),
             RespFrame::Map(m) => write!(f, "{}", m),
             RespFrame::Set(s) => write!(f, "{}", s),
+        }
+    }
+}
+
+impl RespFrame {
+    pub fn equal_bytes(&self, s: &[u8]) -> bool {
+        match self {
+            RespFrame::SimpleString(s1) => s1.0.as_bytes() == s,
+            RespFrame::BulkString(b) => match b {
+                BulkString::Vec(v) => v == s,
+                BulkString::Null => false,
+            },
+            _ => false,
+        }
+    }
+
+    pub fn try_to_string(&self) -> Result<String> {
+        match self {
+            RespFrame::SimpleString(s) => Ok(s.0.clone()),
+            RespFrame::BulkString(b) => match b {
+                BulkString::Vec(v) => Ok(String::from_utf8(v.clone())?),
+                BulkString::Null => Err(anyhow!("BulkString is null")),
+            },
+            _ => Err(anyhow!("Not support to string")),
         }
     }
 }
@@ -126,3 +151,23 @@ impl From<String> for RespFrame {
 //         RespFrame::Double(f)
 //     }
 // }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_try_to_string() {
+        let s1: RespFrame = SimpleString::new("hello world").into();
+        let res = s1.try_to_string().unwrap();
+        assert_eq!(res, "hello world");
+
+        let s2: RespFrame = BulkString::new("hello world").into();
+        let res = s2.try_to_string().unwrap();
+        assert_eq!(res, "hello world");
+
+        let s: RespFrame = RespArray::with_vec(vec![s1, s2]).into();
+        let res = s.try_to_string();
+        assert!(res.is_err());
+    }
+}
