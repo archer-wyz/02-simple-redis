@@ -43,6 +43,8 @@ impl Decoder for RespCodec {
     type Error = anyhow::Error;
 
     // make sure the bytes' cursor is at the ending after successfully decoding
+    // TODO
+    //  May be we don't need to read again when we get RespNotComplete.
     fn decode(&mut self, src: &mut bytes::BytesMut) -> Result<Option<Self::Item>, Self::Error> {
         //let mut src_clone = src.clone();
         match RespFrame::decode(src) {

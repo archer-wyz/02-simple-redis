@@ -7,7 +7,7 @@ pub struct Backend {}
 impl Backend {
     pub fn handle(&self, req: RespFrame) -> RespFrame {
         info!("Request: {:?}", req);
-        SimpleString::new("+OK\r\n").into()
+        SimpleString::new("OK").into()
     }
 }
 
