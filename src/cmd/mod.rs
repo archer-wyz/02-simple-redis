@@ -90,21 +90,14 @@ impl TryFrom<RespArray> for Command {
             Some(v) => {
                 let v = match v.first() {
                     None => Err(CommandError::InvalidCommand("empty command".to_string())),
-                    Some(RespFrame::BulkString(ref cmd)) => match cmd {
-                        BulkString::Vec(v) => Ok(v.as_ref()),
-                        _ => Err(CommandError::InvalidCommand(
-                            "command should be bulk_string".to_string(),
-                        )),
-                    },
-                    Some(RespFrame::SimpleString(ref cmd)) => Ok(cmd.0.as_bytes()),
-                    _ => Err(CommandError::InvalidCommand(
-                        "command should be string".to_string(),
-                    )),
+                    Some(v) => Ok(v.try_to_string().unwrap_or_default()),
                 }?;
 
-                match v {
+                match v.as_bytes() {
                     b"get" => Ok(Get::try_from(array)?.into()),
                     b"set" => Ok(Set::try_from(array)?.into()),
+                    b"hset" => Ok(HSet::try_from(array)?.into()),
+                    b"hget" => Ok(HGet::try_from(array)?.into()),
                     _ => Ok(Unrecognized.into()),
                 }
             }
@@ -220,7 +213,7 @@ mod test {
         let res = RespArray::decode(&mut data).unwrap();
         let cmd = Command::try_from(res).unwrap();
         match cmd {
-            Command::Unrecognized(_) => {}
+            Command::HGet(_) => {}
             _ => panic!("Command type not equal"),
         }
     }
