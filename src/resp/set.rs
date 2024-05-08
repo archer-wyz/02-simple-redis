@@ -1,6 +1,7 @@
 use super::*;
 use anyhow::Result;
 use bytes::Buf;
+use std::fmt::Display;
 use std::ops::{Deref, DerefMut};
 
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
@@ -42,7 +43,7 @@ impl RespDecode for RespSet {
         data.advance(pos);
         let mut rs = RespSet::new();
         for _ in 0..len {
-            let frame = RespFrame::decode(data)?;
+            let frame = RespFrame::decode(data).map_err(|e| e.map_not_complete())?;
             rs.push(frame)
         }
         Ok(rs)
@@ -60,6 +61,12 @@ impl Deref for RespSet {
 impl DerefMut for RespSet {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
+    }
+}
+
+impl Display for RespSet {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self.0)
     }
 }
 
@@ -99,5 +106,18 @@ mod test {
         );
 
         Ok(())
+    }
+
+    #[test]
+    fn test_set_decode_not_complete() {
+        let mut buf = BytesMut::new();
+        buf.extend_from_slice(b"~2\r\n$3\r\nset\r\n$5\r\nhel");
+        let frame = RespSet::decode(&mut buf).unwrap_err();
+        assert_eq!(frame, RespError::RespNotComplete);
+
+        let mut buf = BytesMut::new();
+        buf.extend_from_slice(b"~2\r\n$3\r\nset\r\n");
+        let frame = RespSet::decode(&mut buf).unwrap_err();
+        assert_eq!(frame, RespError::RespNotComplete);
     }
 }

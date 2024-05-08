@@ -1,5 +1,6 @@
 use super::*;
 use bytes::Buf;
+use std::fmt::Display;
 use std::ops::Deref;
 
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
@@ -37,5 +38,11 @@ impl Deref for SimpleError {
 
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+impl Display for SimpleError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
     }
 }

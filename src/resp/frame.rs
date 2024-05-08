@@ -1,6 +1,7 @@
 use super::*;
 use bytes::BytesMut;
 use enum_dispatch::enum_dispatch;
+use std::fmt::{Display, Formatter};
 use thiserror::Error;
 const MAX_SIMPLE_STRING: usize = 128;
 
@@ -19,11 +20,28 @@ pub enum RespFrame {
     Set(RespSet),
 }
 
+impl Display for RespFrame {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            RespFrame::SimpleString(s) => write!(f, "{}", s),
+            RespFrame::Error(e) => write!(f, "{}", e),
+            RespFrame::Integer(i) => write!(f, "{}", i),
+            RespFrame::BulkString(b) => write!(f, "{}", b),
+            RespFrame::Array(a) => write!(f, "{}", a),
+            RespFrame::Null(n) => write!(f, "{}", n),
+            RespFrame::Boolean(b) => write!(f, "{}", b),
+            RespFrame::Double(d) => write!(f, "{}", d),
+            RespFrame::Map(m) => write!(f, "{}", m),
+            RespFrame::Set(s) => write!(f, "{}", s),
+        }
+    }
+}
+
 impl RespDecode for RespFrame {
     const PREFIX: &'static str = "";
     fn decode(data: &mut BytesMut) -> Result<Self, RespError> {
         if data.is_empty() {
-            return Err(crate::resp::RespError::RespIsEmpty);
+            return Err(RespError::RespNotComplete);
         }
         let prefix = data[0] as char;
         match prefix {
@@ -34,25 +52,41 @@ impl RespDecode for RespFrame {
             '-' => Ok(SimpleError::decode(data)?.into()),
             ':' => Ok(i64::decode(data)?.into()),
             ',' => Ok(f64::decode(data)?.into()),
-            _ => Err(RespError::RespNotSupport(prefix)),
+            _ => Err(RespError::RespInvalid(format!(
+                "does not support prefix {}",
+                prefix
+            ))),
         }
     }
 }
 
 #[derive(Error, Debug, PartialEq)]
 pub enum RespError {
-    #[error("Invalid RESP frame {0}")]
-    RespNotComplete(String),
+    #[error("RESP not complete")]
+    RespNotComplete,
+    #[error("Invalid RESP frame ({0})")]
+    RespInvalid(String),
     #[error("Empty RESP frame")]
     RespIsEmpty,
-    #[error("Prefix not support {0}")]
-    RespNotSupport(char),
     #[error("RESP length {expected:?} not equals to decoded length {decoded:?}")]
     RespNotEqualLength { expected: usize, decoded: usize },
     #[error("RESP Parse Error: try parse (data: {data:?}) into (type: {typ:?})")]
     RespParseError { typ: String, data: String },
     #[error("RESP (type: {typ:?}) Wrapped (err: {err:?})")]
     RespWrappedError { typ: String, err: Box<RespError> },
+}
+
+impl RespError {
+    pub fn map_not_complete(self) -> Self {
+        match self {
+            RespError::RespNotComplete => self,
+            RespError::RespIsEmpty => RespError::RespNotComplete,
+            _ => RespError::RespWrappedError {
+                typ: "array".to_string(),
+                err: Box::new(self),
+            },
+        }
+    }
 }
 
 impl<const N: usize> From<&[u8; N]> for RespFrame {

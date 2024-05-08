@@ -1,5 +1,6 @@
 use super::*;
 use bytes::Buf;
+use std::fmt::Display;
 use std::ops::Deref;
 
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
@@ -26,17 +27,33 @@ impl RespDecode for RespMap {
         data.advance(pos);
         let mut rm = RespMap::new();
         for _ in 0..len {
-            let key = SimpleString::decode(data).map_err(|e| RespError::RespWrappedError {
-                typ: "map".to_string(),
-                err: Box::new(e),
-            })?;
-            let value = RespFrame::decode(data).map_err(|e| RespError::RespWrappedError {
-                typ: "map".to_string(),
-                err: Box::new(e),
-            })?;
-            rm.insert(key.0, value);
+            let key = RespFrame::decode(data).map_err(|e| e.map_not_complete())?;
+            let value = RespFrame::decode(data).map_err(|e| e.map_not_complete())?;
+            match key {
+                RespFrame::SimpleString(k) => {
+                    rm.insert(k.0, value);
+                }
+                _ => {
+                    return Err(RespError::RespInvalid(
+                        "map key must be simple string".to_string(),
+                    ))
+                }
+            }
         }
         Ok(rm)
+    }
+}
+
+impl Display for RespMap {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{{")?;
+        for (i, (k, v)) in self.iter().enumerate() {
+            if i > 0 {
+                write!(f, ", ")?;
+            }
+            write!(f, "{}: {}", k, v)?;
+        }
+        write!(f, "}}")
     }
 }
 
@@ -74,9 +91,9 @@ impl Deref for RespMap {
 
 #[cfg(test)]
 mod test {
+    use super::*;
     #[test]
     fn test_resp_map_encode() {
-        use super::*;
         let mut rm = RespMap::new();
         rm.insert("hello", BulkString::new("world"));
         rm.insert("foo", BulkString::new("bar"));
@@ -87,7 +104,6 @@ mod test {
 
     #[test]
     fn test_resp_map_decode() {
-        use super::*;
         let mut data = BytesMut::from("%2\r\n+foo\r\n$3\r\nbar\r\n+hello\r\n$5\r\nworld\r\n");
         let res = RespMap::decode(&mut data).unwrap();
         assert_eq!(data.len(), 0);
@@ -95,5 +111,20 @@ mod test {
             res.encode(),
             b"%2\r\n+foo\r\n$3\r\nbar\r\n+hello\r\n$5\r\nworld\r\n"
         );
+    }
+
+    #[test]
+    fn test_resp_map_decode_incomplete() {
+        let mut data = BytesMut::from("%2\r\n+foo\r\n$3\r\nbar\r\n+hello\r\n$5\r\nwo");
+        let err = RespMap::decode(&mut data).unwrap_err();
+        assert_eq!(err, RespError::RespNotComplete);
+
+        let mut data = BytesMut::from("%2\r\n+foo\r\n$3\r\nbar\r\n+hello\r\n$5\r");
+        let err = RespMap::decode(&mut data).unwrap_err();
+        assert_eq!(err, RespError::RespNotComplete);
+
+        let mut data = BytesMut::from("%2\r\n+foo\r\n$3\r\nbar\r\nhello\r\n$5\r");
+        let err = RespMap::decode(&mut data).unwrap_err();
+        assert_ne!(err, RespError::RespNotComplete);
     }
 }

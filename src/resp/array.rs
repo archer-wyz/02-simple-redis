@@ -1,6 +1,7 @@
 use super::*;
 use anyhow::Result;
 use bytes::{Buf, BytesMut};
+use std::fmt::Display;
 use std::ops::{Deref, DerefMut};
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct RespArray(pub(crate) Option<Vec<RespFrame>>);
@@ -36,13 +37,28 @@ impl RespDecode for RespArray {
         data.advance(pos);
         let mut ra = Vec::with_capacity(len as usize);
         for _ in 0..len {
-            let frame = RespFrame::decode(data).map_err(|e| RespError::RespWrappedError {
-                typ: "array".to_string(),
-                err: Box::new(e),
-            })?;
+            let frame = RespFrame::decode(data).map_err(|e| e.map_not_complete())?;
             ra.push(frame);
         }
         Ok(RespArray::with_vec(ra))
+    }
+}
+
+impl Display for RespArray {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self.0.as_ref() {
+            None => write!(f, "null"),
+            Some(v) => {
+                write!(f, "[")?;
+                for (i, frame) in v.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{}", frame)?;
+                }
+                write!(f, "]")
+            }
+        }
     }
 }
 
@@ -139,13 +155,7 @@ mod test {
 
         buf.extend_from_slice(b"*2\r\n$3\r\nset\r\n");
         let ret = RespArray::decode(&mut buf.clone());
-        assert_eq!(
-            ret.unwrap_err(),
-            RespError::RespWrappedError {
-                typ: "array".to_string(),
-                err: Box::new(RespError::RespIsEmpty),
-            }
-        );
+        assert_eq!(ret.unwrap_err(), RespError::RespNotComplete);
 
         buf.extend_from_slice(b"$5\r\nhello\r\n");
         let frame = RespArray::decode(&mut buf)?;
@@ -166,5 +176,20 @@ mod test {
         let res = RespArray::decode(&mut data).unwrap();
         assert_eq!(data.len(), 0);
         assert_eq!(res.encode(), b"*-1\r\n");
+    }
+
+    #[test]
+    fn test_resp_array_not_complete() {
+        let mut data = BytesMut::from("*2\r\n+hello\r\n");
+        let res = RespArray::decode(&mut data);
+        assert_eq!(res.unwrap_err(), RespError::RespNotComplete);
+
+        let mut data = BytesMut::from("*2\r\n+hello\r");
+        let res = RespArray::decode(&mut data);
+        assert_eq!(res.unwrap_err(), RespError::RespNotComplete);
+
+        let mut data = BytesMut::from("*2\r\n+hello\r\n+abc");
+        let res = RespArray::decode(&mut data);
+        assert_eq!(res.unwrap_err(), RespError::RespNotComplete);
     }
 }

@@ -15,7 +15,7 @@ impl RespDecode for bool {
         let res = match s {
             b"t" => true,
             b"f" => false,
-            _ => return Err(RespError::RespNotComplete("Invalid bool".to_string())),
+            _ => return Err(RespError::RespInvalid("Invalid bool".to_string())),
         };
         data.advance(pos);
         Ok(res)

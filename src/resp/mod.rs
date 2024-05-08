@@ -52,16 +52,17 @@ fn split_cr_lf(data: &BytesMut) -> Result<(&[u8], usize), RespError> {
         }
         pos += 1;
     }
-    Err(RespError::RespNotComplete("CRLF not found".to_string()))
+    Err(RespError::RespNotComplete)
 }
 
 // TODO
 // Should length be usize or i64?
 fn parse_length(data: &BytesMut) -> Result<(i64, usize), RespError> {
     let (s, pos) = split_cr_lf(data)?;
+    // If CR LF is found, it means the length is valid.
     let s = String::from_utf8_lossy(s);
     let len = s
         .parse()
-        .map_err(|_| RespError::RespNotComplete("Invalid length".to_string()))?;
+        .map_err(|_| RespError::RespInvalid("Invalid length".to_string()))?;
     Ok((len, pos))
 }

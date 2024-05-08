@@ -1,5 +1,6 @@
 use super::*;
 use bytes::Buf;
+use std::fmt::Display;
 
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct RespNull();
@@ -16,9 +17,15 @@ impl RespDecode for RespNull {
         data.advance(Self::PREFIX.len());
         let (s, pos) = split_cr_lf(data)?;
         if s.is_empty() {
-            return Err(RespError::RespNotComplete("Invalid null".to_string()));
+            return Err(RespError::RespInvalid("Invalid null".to_string()));
         }
         data.advance(pos);
         Ok(RespNull())
+    }
+}
+
+impl Display for RespNull {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "null")
     }
 }
