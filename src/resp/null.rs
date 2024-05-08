@@ -2,7 +2,7 @@ use super::*;
 use bytes::Buf;
 use std::fmt::Display;
 
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, PartialEq, PartialOrd, Default)]
 pub struct RespNull();
 
 impl RespEncode for RespNull {
@@ -21,6 +21,12 @@ impl RespDecode for RespNull {
         }
         data.advance(pos);
         Ok(RespNull())
+    }
+}
+
+impl RespNull {
+    pub fn new() -> Self {
+        RespNull()
     }
 }
 

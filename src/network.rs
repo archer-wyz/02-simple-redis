@@ -1,11 +1,23 @@
-use crate::{Backend, RespDecode, RespEncode, RespError, RespFrame};
+use crate::{Backend, Command, CommandExecutor, RespDecode, RespEncode, RespError, RespFrame};
 use anyhow::{anyhow, Result};
 use futures::{SinkExt, StreamExt};
 use tokio::net::TcpStream;
 use tokio_util::codec::{Decoder, Encoder, Framed};
 use tracing::info;
 
+#[derive(Debug)]
 struct RespCodec {}
+
+#[derive(Debug)]
+struct RedisRequest {
+    frame: RespFrame,
+    backend: Backend,
+}
+
+#[derive(Debug)]
+struct RedisResponse {
+    frame: RespFrame,
+}
 
 pub async fn stream_handler(stream: TcpStream, backend: Backend) -> Result<()> {
     let mut framed = Framed::new(stream, RespCodec::new());
@@ -13,13 +25,26 @@ pub async fn stream_handler(stream: TcpStream, backend: Backend) -> Result<()> {
         match framed.next().await {
             Some(Ok(frame)) => {
                 info!("Received frame: {:?}", frame);
-                let frame = backend.handle(frame);
-                framed.send(frame).await?;
+                let request = RedisRequest {
+                    frame,
+                    backend: backend.clone(),
+                };
+                let response = request_handler(request).await?;
+                info!("Sending response: {:?}", response.frame);
+                framed.send(response.frame).await?;
             }
             Some(Err(e)) => return Err(e),
             None => return Ok(()),
         }
     }
+}
+
+async fn request_handler(request: RedisRequest) -> Result<RedisResponse> {
+    let (frame, backend) = (request.frame, request.backend);
+    let cmd = Command::try_from(frame)?;
+    info!("Executing command: {:?}", cmd);
+    let frame = cmd.execute(&backend);
+    Ok(RedisResponse { frame })
 }
 
 impl Encoder<RespFrame> for RespCodec {

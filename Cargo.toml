@@ -15,3 +15,5 @@ tokio = { version = "1.37.0", features = ["rt", "rt-multi-thread", "net", "tokio
 tokio-util = { version = "0.7.11", features = ["codec"] }
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
+dashmap = "5.5.3"
+lazy_static = "1.4.0"
