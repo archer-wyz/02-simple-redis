@@ -1,3 +1,4 @@
+mod echo;
 mod hmap;
 mod map;
 
@@ -18,6 +19,7 @@ pub enum Command {
     Set(Set),
     HGet(HGet),
     HSet(HSet),
+    Echo(Echo),
 
     // unrecognized command
     Unrecognized(Unrecognized),
@@ -29,6 +31,11 @@ pub struct Unrecognized;
 #[derive(Debug)]
 pub struct Get {
     pub key: String,
+}
+
+#[derive(Debug)]
+pub struct Echo {
+    pub value: RespFrame,
 }
 
 #[derive(Debug)]
@@ -98,6 +105,7 @@ impl TryFrom<RespArray> for Command {
                     b"set" => Ok(Set::try_from(array)?.into()),
                     b"hset" => Ok(HSet::try_from(array)?.into()),
                     b"hget" => Ok(HGet::try_from(array)?.into()),
+                    b"echo" => Ok(Echo::try_from(array)?.into()),
                     _ => Ok(Unrecognized.into()),
                 }
             }
