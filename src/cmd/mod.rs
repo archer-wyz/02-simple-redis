@@ -2,7 +2,7 @@ mod echo;
 mod hmap;
 mod map;
 
-use crate::{BulkString, RespArray, RespFrame, SimpleString};
+use crate::{RespArray, RespFrame, SimpleString};
 use enum_dispatch::enum_dispatch;
 use lazy_static::lazy_static;
 use thiserror::Error;
@@ -19,6 +19,8 @@ pub enum Command {
     Set(Set),
     HGet(HGet),
     HSet(HSet),
+    HMGet(HMGet),
+
     Echo(Echo),
 
     // unrecognized command
@@ -36,6 +38,12 @@ pub struct Get {
 #[derive(Debug)]
 pub struct Echo {
     pub value: RespFrame,
+}
+
+#[derive(Debug)]
+pub struct HMGet {
+    pub key: String,
+    pub fields: Vec<String>,
 }
 
 #[derive(Debug)]
@@ -106,6 +114,7 @@ impl TryFrom<RespArray> for Command {
                     b"hset" => Ok(HSet::try_from(array)?.into()),
                     b"hget" => Ok(HGet::try_from(array)?.into()),
                     b"echo" => Ok(Echo::try_from(array)?.into()),
+                    b"hmget" => Ok(HMGet::try_from(array)?.into()),
                     _ => Ok(Unrecognized.into()),
                 }
             }
@@ -120,53 +129,36 @@ impl CommandExecutor for Unrecognized {
     }
 }
 
-fn get_args(value: RespArray, command: &str, args: usize) -> Result<Vec<RespFrame>, CommandError> {
+fn get_args_without_check(value: RespArray, command: &str) -> Result<Vec<RespFrame>, CommandError> {
     let frame = match value.0 {
         None => return Err(CommandError::InvalidCommand("Empty command".to_string())),
-        Some(v) => {
-            if v.is_empty() {
-                return Err(CommandError::InvalidCommand("Empty command".to_string()));
-            }
-            v
-        }
+        Some(v) => v,
     };
-
-    match &frame[0] {
-        RespFrame::BulkString(ref bs) => match bs {
-            BulkString::Vec(v) => {
-                if v.as_slice() != command.as_bytes() {
+    let mut iter = frame.into_iter();
+    match iter.next() {
+        None => Err(CommandError::InvalidCommand("Empty command".to_string())),
+        Some(v) => match v.try_to_string() {
+            Ok(v) => {
+                if v != command {
                     return Err(CommandError::NotEqualCommand);
                 }
-                if frame.len() != args + 1 {
-                    return Err(CommandError::InvalidCommand(format!(
-                        "Command args not equal, expect: {}, got: {}",
-                        args,
-                        frame.len() - 1
-                    )));
-                }
-                Ok(frame.into_iter().skip(1).collect())
+                Ok(iter.collect())
             }
-            BulkString::Null => Err(CommandError::InvalidCommand(
-                "Command type is bulk_string_null".to_string(),
-            )),
+            Err(_) => Err(CommandError::InvalidCommand("Invalid command".to_string())),
         },
-        RespFrame::SimpleString(ref ss) => {
-            if ss.as_bytes() != command.as_bytes() {
-                return Err(CommandError::NotEqualCommand);
-            }
-            if frame.len() != args + 1 {
-                return Err(CommandError::InvalidCommand(format!(
-                    "Command args not equal, expect: {}, got: {}",
-                    args,
-                    frame.len() - 1
-                )));
-            }
-            Ok(frame.into_iter().skip(1).collect())
-        }
-        _ => Err(CommandError::InvalidCommand(
-            "Command type should be simple_string or bulk_string".to_string(),
-        )),
     }
+}
+
+fn get_args(value: RespArray, command: &str, args: usize) -> Result<Vec<RespFrame>, CommandError> {
+    let frame = get_args_without_check(value, command)?;
+    if frame.len() != args {
+        return Err(CommandError::InvalidCommand(format!(
+            "Command args not equal, expect: {}, got: {}",
+            args,
+            frame.len()
+        )));
+    }
+    Ok(frame)
 }
 
 #[cfg(test)]

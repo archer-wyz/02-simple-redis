@@ -58,3 +58,62 @@ impl TryFrom<RespArray> for HSet {
         }
     }
 }
+
+impl TryFrom<RespArray> for HMGet {
+    type Error = CommandError;
+
+    fn try_from(value: RespArray) -> Result<Self, Self::Error> {
+        let mut args = get_args_without_check(value, "hmget")?.into_iter();
+        let key = match args.next() {
+            None => Err(CommandError::InvalidCommand("Empty command".to_string())),
+            Some(v) => match v.try_to_string() {
+                Ok(v) => Ok(v),
+                Err(e) => Err(CommandError::InvalidCommand(e.to_string())),
+            },
+        }?;
+        let fields: Vec<String> = args.filter_map(|v| v.try_to_string().ok()).collect();
+        Ok(HMGet { key, fields })
+    }
+}
+
+impl CommandExecutor for HMGet {
+    fn execute(&self, backend: &Backend) -> RespFrame {
+        let mut res = Vec::new();
+        for field in &self.fields {
+            res.push(
+                backend
+                    .hget(&self.key, field)
+                    .unwrap_or_else(|| RespNull::new().into()),
+            );
+        }
+        RespFrame::Array(RespArray::with_vec(res))
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::RespDecode;
+    use bytes::BytesMut;
+    #[test]
+    fn test_hmget() {
+        let mut bytes = BytesMut::new();
+        bytes.extend_from_slice(
+            b"*4\r\n$5\r\nhmget\r\n$3\r\nkey\r\n$6\r\nfield1\r\n$6\r\nfield2\r\n",
+        );
+        let frame = RespFrame::decode(&mut bytes).unwrap();
+        let hmget = Command::try_from(frame).unwrap();
+        let b = Backend::default();
+        b.hset("key".to_string(), "field1".to_string(), "value1".into());
+        b.hset("key".to_string(), "field2".to_string(), "value2".into());
+
+        let res = hmget.execute(&b);
+        assert_eq!(
+            res,
+            RespFrame::Array(RespArray::with_vec(vec![
+                SimpleString::new("value1").into(),
+                SimpleString::new("value2").into()
+            ]))
+        );
+    }
+}
