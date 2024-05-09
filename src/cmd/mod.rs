@@ -1,6 +1,7 @@
 mod echo;
 mod hmap;
 mod map;
+mod set;
 
 use crate::{RespArray, RespFrame, SimpleString};
 use enum_dispatch::enum_dispatch;
@@ -21,6 +22,9 @@ pub enum Command {
     HSet(HSet),
     HMGet(HMGet),
 
+    SADD(SADD),
+    SISMEBER(SISMEBER),
+
     Echo(Echo),
 
     // unrecognized command
@@ -29,6 +33,18 @@ pub enum Command {
 
 #[derive(Debug)]
 pub struct Unrecognized;
+
+#[derive(Debug)]
+pub struct SADD {
+    pub key: String,
+    pub members: Vec<String>,
+}
+
+#[derive(Debug)]
+pub struct SISMEBER {
+    pub key: String,
+    pub member: String,
+}
 
 #[derive(Debug)]
 pub struct Get {
@@ -106,7 +122,8 @@ impl TryFrom<RespArray> for Command {
                 let v = match v.first() {
                     None => Err(CommandError::InvalidCommand("empty command".to_string())),
                     Some(v) => Ok(v.try_to_string().unwrap_or_default()),
-                }?;
+                }?
+                .to_lowercase();
 
                 match v.as_bytes() {
                     b"get" => Ok(Get::try_from(array)?.into()),
@@ -115,6 +132,8 @@ impl TryFrom<RespArray> for Command {
                     b"hget" => Ok(HGet::try_from(array)?.into()),
                     b"echo" => Ok(Echo::try_from(array)?.into()),
                     b"hmget" => Ok(HMGet::try_from(array)?.into()),
+                    b"sadd" => Ok(SADD::try_from(array)?.into()),
+                    b"sismember" => Ok(SISMEBER::try_from(array)?.into()),
                     _ => Ok(Unrecognized.into()),
                 }
             }
@@ -139,7 +158,7 @@ fn get_args_without_check(value: RespArray, command: &str) -> Result<Vec<RespFra
         None => Err(CommandError::InvalidCommand("Empty command".to_string())),
         Some(v) => match v.try_to_string() {
             Ok(v) => {
-                if v != command {
+                if v.to_lowercase() != command {
                     return Err(CommandError::NotEqualCommand);
                 }
                 Ok(iter.collect())
@@ -159,6 +178,19 @@ fn get_args(value: RespArray, command: &str, args: usize) -> Result<Vec<RespFram
         )));
     }
     Ok(frame)
+}
+
+fn parse_key_values_as_string(args: Vec<RespFrame>) -> Result<(String, Vec<String>), CommandError> {
+    let mut args = args.into_iter();
+    let key = match args.next() {
+        None => Err(CommandError::InvalidCommand("Empty command".to_string())),
+        Some(v) => match v.try_to_string() {
+            Ok(v) => Ok(v),
+            Err(e) => Err(CommandError::InvalidCommand(e.to_string())),
+        },
+    }?;
+    let fields: Vec<String> = args.filter_map(|v| v.try_to_string().ok()).collect();
+    Ok((key, fields))
 }
 
 #[cfg(test)]

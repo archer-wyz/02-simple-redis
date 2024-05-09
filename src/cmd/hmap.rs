@@ -63,15 +63,8 @@ impl TryFrom<RespArray> for HMGet {
     type Error = CommandError;
 
     fn try_from(value: RespArray) -> Result<Self, Self::Error> {
-        let mut args = get_args_without_check(value, "hmget")?.into_iter();
-        let key = match args.next() {
-            None => Err(CommandError::InvalidCommand("Empty command".to_string())),
-            Some(v) => match v.try_to_string() {
-                Ok(v) => Ok(v),
-                Err(e) => Err(CommandError::InvalidCommand(e.to_string())),
-            },
-        }?;
-        let fields: Vec<String> = args.filter_map(|v| v.try_to_string().ok()).collect();
+        let args = get_args_without_check(value, "hmget")?;
+        let (key, fields) = parse_key_values_as_string(args)?;
         Ok(HMGet { key, fields })
     }
 }

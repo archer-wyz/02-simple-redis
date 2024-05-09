@@ -4,8 +4,8 @@ use bytes::Buf;
 // :[<+|->]<value>\r\n
 impl RespEncode for i64 {
     fn encode(&self) -> Vec<u8> {
-        let sign = if *self < 0 { "" } else { "+" };
-        format!(":{}{}\r\n", sign, self).into_bytes()
+        //let sign = if *self < 0 { "" } else { "+" };
+        format!(":{}\r\n", self).into_bytes()
     }
 }
 
@@ -34,7 +34,7 @@ mod test {
     fn test_i64_encode() {
         let i = 123;
         let res = i.encode();
-        assert_eq!(res, b":+123\r\n");
+        assert_eq!(res, b":123\r\n");
 
         let i = -123;
         let res = i.encode();
@@ -46,7 +46,7 @@ mod test {
         let mut data = BytesMut::from(":123\r\n");
         let res = i64::decode(&mut data).unwrap();
         assert_eq!(data.len(), 0);
-        assert_eq!(res.encode(), b":+123\r\n");
+        assert_eq!(res.encode(), b":123\r\n");
 
         let mut data = BytesMut::from(":-123\r\n");
         let res = i64::decode(&mut data).unwrap();

@@ -50,6 +50,9 @@ impl RespFrame {
         }
     }
 
+    // TODO
+    //  reactor to trait TryFrom
+    //  impl TryFrom<RespFrame> for String
     pub fn try_to_string(&self) -> Result<String> {
         match self {
             RespFrame::SimpleString(s) => Ok(s.0.clone()),
@@ -58,6 +61,16 @@ impl RespFrame {
                 BulkString::Null => Err(anyhow!("BulkString is null")),
             },
             _ => Err(anyhow!("Not support to string")),
+        }
+    }
+
+    // TODO
+    //  reactor to trait TryFrom
+    //  impl TryFrom<RespFrame> for i64
+    pub fn try_to_int(&self) -> Result<i64> {
+        match self {
+            RespFrame::Integer(i) => Ok(*i),
+            _ => Err(anyhow!("Not support to int")),
         }
     }
 }
