@@ -3,7 +3,7 @@ mod hmap;
 mod map;
 mod set;
 
-use crate::{RespArray, RespFrame, SimpleString};
+use crate::{RespArray, RespFrame, SimpleError, SimpleString};
 use enum_dispatch::enum_dispatch;
 use lazy_static::lazy_static;
 use thiserror::Error;
@@ -11,6 +11,7 @@ use thiserror::Error;
 // you could also use once_cell instead of lazy_static
 lazy_static! {
     static ref RESP_OK: RespFrame = SimpleString::new("OK").into();
+    static ref RESP_NOT_SUPPORT: RespFrame = SimpleError::new("Not support yet").into();
 }
 
 #[enum_dispatch(CommandExecutor)]
@@ -144,7 +145,7 @@ impl TryFrom<RespArray> for Command {
 
 impl CommandExecutor for Unrecognized {
     fn execute(&self, _: &crate::Backend) -> RespFrame {
-        RESP_OK.clone()
+        RESP_NOT_SUPPORT.clone()
     }
 }
 

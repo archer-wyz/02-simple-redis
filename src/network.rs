@@ -1,4 +1,6 @@
-use crate::{Backend, Command, CommandExecutor, RespDecode, RespEncode, RespError, RespFrame};
+use crate::{
+    Backend, Command, CommandExecutor, RespDecode, RespEncode, RespError, RespFrame, SimpleError,
+};
 use anyhow::{anyhow, Result};
 use futures::{SinkExt, StreamExt};
 use tokio::net::TcpStream;
@@ -40,7 +42,14 @@ pub async fn stream_handler(stream: TcpStream, backend: Backend) -> Result<()> {
 
 async fn request_handler(request: RedisRequest) -> Result<RedisResponse> {
     let (frame, backend) = (request.frame, request.backend);
-    let cmd = Command::try_from(frame)?;
+    let cmd = match Command::try_from(frame) {
+        Ok(c) => c,
+        Err(e) => {
+            return Ok(RedisResponse {
+                frame: SimpleError::new(format!("Command Err: {}", e)).into(),
+            })
+        }
+    };
     info!("Executing command: {:?}", cmd);
     let frame = cmd.execute(&backend);
     Ok(RedisResponse { frame })
