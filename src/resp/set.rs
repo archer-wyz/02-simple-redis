@@ -1,10 +1,11 @@
 use super::*;
 use anyhow::Result;
 use bytes::Buf;
+use macro_definitions::AutoDeref;
 use std::fmt::Display;
-use std::ops::{Deref, DerefMut};
 
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, PartialEq, PartialOrd, AutoDeref)]
+#[deref(mutable)]
 pub struct RespSet(pub(crate) Vec<RespFrame>);
 
 impl RespEncode for RespSet {
@@ -47,20 +48,6 @@ impl RespDecode for RespSet {
             rs.push(frame)
         }
         Ok(rs)
-    }
-}
-
-impl Deref for RespSet {
-    type Target = Vec<RespFrame>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl DerefMut for RespSet {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
     }
 }
 

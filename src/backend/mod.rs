@@ -1,9 +1,9 @@
 use crate::RespFrame;
 use dashmap::{DashMap, DashSet};
-use std::ops::Deref;
+use macro_definitions::AutoDeref;
 use std::sync::Arc;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, AutoDeref)]
 pub struct Backend(Arc<BackendInner>);
 
 #[derive(Debug)]
@@ -11,14 +11,6 @@ pub struct BackendInner {
     pub(crate) map: DashMap<String, RespFrame>,
     pub(crate) hmap: DashMap<String, DashMap<String, RespFrame>>,
     pub(crate) set: DashMap<String, DashSet<String>>,
-}
-
-impl Deref for Backend {
-    type Target = BackendInner;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
 }
 
 impl Default for Backend {

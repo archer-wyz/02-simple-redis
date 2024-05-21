@@ -64,20 +64,6 @@ impl Display for RespArray {
     }
 }
 
-// impl Deref for RespArray {
-//     type Target = Option<Vec<RespFrame>>;
-//
-//     fn deref(&self) -> &Self::Target {
-//         &self.0
-//     }
-// }
-//
-// impl DerefMut for RespArray {
-//     fn deref_mut(&mut self) -> &mut Self::Target {
-//         &mut self.0
-//     }
-// }
-
 impl RespArray {
     pub fn new_null() -> Self {
         RespArray(None)

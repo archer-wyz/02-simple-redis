@@ -1,9 +1,9 @@
 use super::*;
 use bytes::{Buf, BytesMut};
+use macro_definitions::AutoDeref;
 use std::fmt::{Display, Formatter};
-use std::ops::Deref;
 
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, PartialEq, PartialOrd, AutoDeref)]
 pub struct SimpleString(pub(crate) String);
 
 impl RespEncode for SimpleString {
@@ -26,14 +26,6 @@ impl RespDecode for SimpleString {
         let res = SimpleString::new(String::from_utf8_lossy(s).to_string());
         data.advance(len);
         Ok(res)
-    }
-}
-
-impl Deref for SimpleString {
-    type Target = String;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
     }
 }
 

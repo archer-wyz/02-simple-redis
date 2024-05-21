@@ -1,9 +1,9 @@
 use super::*;
 use bytes::Buf;
+use macro_definitions::AutoDeref;
 use std::fmt::Display;
-use std::ops::Deref;
 
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, PartialEq, PartialOrd, AutoDeref)]
 pub struct SimpleError(String);
 
 impl RespEncode for SimpleError {
@@ -32,15 +32,6 @@ impl SimpleError {
         SimpleError(s.into())
     }
 }
-
-impl Deref for SimpleError {
-    type Target = String;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
 impl Display for SimpleError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)

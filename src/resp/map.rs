@@ -1,9 +1,9 @@
 use super::*;
 use bytes::Buf;
+use macro_definitions::AutoDeref;
 use std::fmt::Display;
-use std::ops::Deref;
 
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, PartialEq, PartialOrd, AutoDeref)]
 pub struct RespMap(pub(crate) BTreeMap<String, RespFrame>);
 
 // %<number-of-entries>\r\n<key-1><value-1>...<key-n><value-n>
@@ -78,14 +78,6 @@ impl RespMap {
 impl Default for RespMap {
     fn default() -> Self {
         Self::new()
-    }
-}
-
-impl Deref for RespMap {
-    type Target = BTreeMap<String, RespFrame>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
     }
 }
 
