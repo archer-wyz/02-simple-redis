@@ -4,27 +4,19 @@ use bytes::Buf;
 use std::fmt::Display;
 
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
-pub enum BulkString {
-    Vec(Vec<u8>),
-    Null,
-}
-
+pub struct BulkString(pub(crate) Option<Vec<u8>>);
 // $<length>\r\n<data>\r\n
 impl RespEncode for BulkString {
     fn encode(&self) -> Vec<u8> {
-        match self {
-            BulkString::Vec(v) => {
+        match &self.0 {
+            Some(v) => {
                 let mut buf = Vec::with_capacity(DEFAULT_CAPACITY);
                 buf.extend_from_slice(format!("${}\r\n", v.len()).as_bytes());
                 buf.extend_from_slice(v.as_slice());
                 buf.extend_from_slice(b"\r\n");
                 buf
             }
-            BulkString::Null => {
-                let mut buf = Vec::with_capacity(DEFAULT_CAPACITY);
-                buf.extend_from_slice(b"$-1\r\n");
-                buf
-            }
+            None => b"$-1\r\n".to_vec(),
         }
     }
 }
@@ -55,18 +47,6 @@ impl RespDecode for BulkString {
     }
 }
 
-// 这样写会有歧义，直接不用
-// impl Deref for BulkString {
-//     type Target = Vec<u8>;
-//
-//     fn deref(&self) -> &Self::Target {
-//         match self {
-//             BulkString::Vec(v) => v,
-//             BulkString::Null => &Vec::new()
-//         }
-//     }
-// }
-
 impl From<&str> for BulkString {
     fn from(s: &str) -> Self {
         BulkString::new(s.as_bytes())
@@ -75,19 +55,19 @@ impl From<&str> for BulkString {
 
 impl BulkString {
     pub fn new(s: impl Into<Vec<u8>>) -> Self {
-        BulkString::Vec(s.into())
+        BulkString(Some(s.into()))
     }
 
     pub fn new_null() -> Self {
-        BulkString::Null
+        BulkString(None)
     }
 }
 
 impl Display for BulkString {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            BulkString::Vec(v) => write!(f, "{}", String::from_utf8_lossy(v)),
-            BulkString::Null => Err(std::fmt::Error),
+        match &self.0 {
+            Some(v) => write!(f, "{}", String::from_utf8_lossy(v)),
+            None => write!(f, "null"),
         }
     }
 }

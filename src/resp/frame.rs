@@ -42,9 +42,9 @@ impl RespFrame {
     pub fn equal_bytes(&self, s: &[u8]) -> bool {
         match self {
             RespFrame::SimpleString(s1) => s1.0.as_bytes() == s,
-            RespFrame::BulkString(b) => match b {
-                BulkString::Vec(v) => v == s,
-                BulkString::Null => false,
+            RespFrame::BulkString(b) => match &b.0 {
+                Some(v) => v.as_slice() == s,
+                None => false,
             },
             _ => false,
         }
@@ -56,9 +56,9 @@ impl RespFrame {
     pub fn try_to_string(&self) -> Result<String> {
         match self {
             RespFrame::SimpleString(s) => Ok(s.0.clone()),
-            RespFrame::BulkString(b) => match b {
-                BulkString::Vec(v) => Ok(String::from_utf8(v.clone())?),
-                BulkString::Null => Err(anyhow!("BulkString is null")),
+            RespFrame::BulkString(b) => match &b.0 {
+                Some(v) => Ok(String::from_utf8_lossy(v).to_string()),
+                _ => Err(anyhow!("BulkString is None")),
             },
             _ => Err(anyhow!("Not support to string")),
         }
