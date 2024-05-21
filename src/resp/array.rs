@@ -1,9 +1,11 @@
 use super::*;
 use anyhow::Result;
 use bytes::{Buf, BytesMut};
+use macro_definitions::AutoDeref;
 use std::fmt::Display;
-use std::ops::{Deref, DerefMut};
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
+
+#[derive(Debug, Clone, PartialEq, PartialOrd, AutoDeref)]
+#[deref(mutable)]
 pub struct RespArray(pub(crate) Option<Vec<RespFrame>>);
 
 impl RespEncode for RespArray {
@@ -62,19 +64,19 @@ impl Display for RespArray {
     }
 }
 
-impl Deref for RespArray {
-    type Target = Option<Vec<RespFrame>>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl DerefMut for RespArray {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
+// impl Deref for RespArray {
+//     type Target = Option<Vec<RespFrame>>;
+//
+//     fn deref(&self) -> &Self::Target {
+//         &self.0
+//     }
+// }
+//
+// impl DerefMut for RespArray {
+//     fn deref_mut(&mut self) -> &mut Self::Target {
+//         &mut self.0
+//     }
+// }
 
 impl RespArray {
     pub fn new_null() -> Self {
